@@ -1,0 +1,62 @@
+version: "3"
+
+services:
+
+    rdweb-guacd:
+        container_name: rdweb-guacd
+        image: glyptodon/guacd
+        environment:
+            ACCEPT_EULA: Y
+
+    rdweb-mysqldb:
+        container_name: rdweb-mysqldb
+        image: glyptodon/guacamole-db-mysql
+        environment:
+            ACCEPT_EULA: Y
+            MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+            GUACAMOLE_DATABASE: guacamole_db
+            GUACAMOLE_USERNAME: guacsql
+            GUACAMOLE_PASSWORD: STRONGSQLPASSWORD
+
+    rdweb-guacamole:
+        container_name: rdweb-guacamole
+        image: glyptodon/guacamole
+        ports:
+            - "8080:8080"
+        volumes:
+            - /opt/rdweb/cert:/opt/glyptodon/share/cert
+        command: bash -c "echo yes | keytool -importcert -alias CAContoso -keystore /usr/lib/jvm/jre/lib/security/cacerts -storepass changeit -file /opt/glyptodon/share/cert/CA-SB31.der"
+        environment:
+            ACCEPT_EULA: Y
+            GUACD_HOSTNAME: rdweb-guacd
+            MYSQL_HOSTNAME: rdweb-mysqldb
+            MYSQL_DATABASE: guacamole_db
+            MYSQL_USERNAME: guacsql
+            MYSQL_PASSWORD: STRONGSQLPASSWORD
+            EXTENSIONS: ldap, mysql, totp
+            TOTP_ISSUER: Contoso
+            USE_DEFAULT_BRANDING: N
+            LDAP_HOSTNAME: dc.local.contoso.com
+            LDAP_PORT: 636
+            LDAP_ENCRYPTION_METHOD: ssl
+            LDAP_USER_BASE_DN: DC=local,DC=contoso,DC=com
+            LDAP_USER_SEARCH_FILTER: (&(objectClass=person)(memberof=CN=RDWEB,OU=Users,DC=local,DC=contoso,DC=com)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))
+            LDAP_MEMBER_ATTRIBUTE: memberOf
+            LDAP_USERNAME_ATTRIBUTE: samAccountName
+            LDAP_USER_ATTRIBUTES: cn, givenName, sn, mail, company, title
+            LDAP_SEARCH_BIND_DN: CN=LDAPREADONLYUSER,OU=Users,DC=local,DC=contoso,DC=com
+            LDAP_SEARCH_BIND_PASSWORD: STRONGADPASSWORD
+
+    rdweb-proxy:
+        container_name: rdweb-proxy
+        image: glyptodon/guacamole-ssl-nginx:2
+        ports:
+            - "80:80"
+            - "443:443"
+        environment:
+            ACCEPT_EULA: Y
+            GUACAMOLE_HOSTNAME: rdweb-guacamole
+            SSL_HOSTNAME: rdweb.contoso.com
+            SELF_SIGNED: Y
+            LETSENCRYPT_ACCEPT_TOS: Y
+            LETSENCRYPT_EMAIL: postmaster@contoso.com
